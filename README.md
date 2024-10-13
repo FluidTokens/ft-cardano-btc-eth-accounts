@@ -49,6 +49,18 @@ A Cardano wallet is able to allow the transaction using the signature of the bit
 
 <img width="265" alt="image" src="https://github.com/user-attachments/assets/02303f7d-d869-4bd3-9b34-d742b5bb84e4">
 
+## Step by step guide
+- Clone the repository
+- Install [aiken](https://aiken-lang.org/)
+- Generate the cardano address for Bitcoin wallet using the bitcoin user publiic key like this aiken blueprint apply -v btc.btc.spend 028f5ced5649da371758f280635f94a558c68eee2ac4c7f07034425e97c60352bd
+- Use the signatures coming from the wallets [docs](https://docs.xverse.app/sats-connect/bitcoin-methods/signmessage)
+- Propagate the signature using any Cardano wallet
+
+## Offchain signature
+
+The signature mechanism is a signature of the intent done by the user using ECDSA signature that is a standard on Bitcoin, this is used because plutus is able to verify them with the function verify_ecdsa_secp256k1_signature
+
+More about it can be find at [here](https://learnmeabitcoin.com/technical/cryptography/elliptic-curve/ecdsa/)
 
 ## Key Features
 
