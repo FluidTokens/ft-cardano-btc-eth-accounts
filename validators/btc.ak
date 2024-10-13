@@ -32,10 +32,7 @@ pub type Redeemer {
 const magic =
   @"Bitcoin Signed Message:\n"
 
-const pubKey =
-  #"028f5ced5649da371758f280635f94a558c68eee2ac4c7f07034425e97c60352bd"
-
-validator btc {
+validator btc(pubKey: ByteArray) {
   spend(
     _datum: Option<Data>,
     redeemer: Redeemer,
@@ -128,6 +125,7 @@ validator btc {
       DelegateCredential(_, delegateCredential) -> {
         expect DelegateBlockProduction(poolId) = delegateCredential
         let message_hash = get_hash_from_bytearray(poolId)
+        //TODO missing end in the hash
         trace cbor.diagnostic(message_hash)
         and {
           validate_signature_key(pubKey, message_hash, signature),
