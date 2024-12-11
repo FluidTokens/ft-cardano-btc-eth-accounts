@@ -1,8 +1,9 @@
 use aiken/builtin
 use aiken/cbor
 use aiken/collection/list
-use aiken/crypto.{sha2_256}
+use aiken/crypto.{keccak_256, sha2_256}
 use aiken/primitive/bytearray.{length}
+use aiken/primitive/int.{to_string}
 use aiken/primitive/string
 use cardano/transaction.{OutputReference}
 
@@ -21,7 +22,6 @@ fn add_one(redeemer: Redeemer) -> ByteArray {
   let size_message = #"40"
   let concat_message = bytearray.from_string(message_string_to_sign)
 
-  //il doppio sha poi lo rendo stringa e maiuscolo, è quello che firmo
   let final_message = bytearray.concat(size_message, concat_message)
   final_message
 }
@@ -35,6 +35,9 @@ fn generate_redeemer_string(redeemer: Redeemer) -> String {
       |> list.push(redeemer.policy)
       |> list.push(bytearray.from_int_big_endian(redeemer.utxo.output_index, 1))
       |> list.push(redeemer.utxo.transaction_id)
+  trace cbor.diagnostic(concat_array(message_array))
+  trace cbor.diagnostic(sha2_256(concat_array(message_array)))
+  trace cbor.diagnostic(sha2_256(sha2_256(concat_array(message_array))))
   bytearray.to_hex(sha2_256(sha2_256(concat_array(message_array))))
 }
 
@@ -54,7 +57,7 @@ const test_redeemer =
   Redeemer(
     #"ab",
     OutputReference(
-      #"6f69a8ed4e307bfb1d29e79f223c2bbf1debbb4c632bce72e2e3b8043a685224",
+      #"f5050ca4ce13f459efbd199fec2d62605eca9165fbec9201df8fbda7142a0dc7",
       0,
     ),
     #"",
@@ -64,12 +67,12 @@ const test_redeemer =
     #"fd3a6bfce30d7744ac55e9cf9146d8a2a04ec7fb2ce2ee6986260653",
   )
 
-test redeemer_string() {
-  generate_redeemer_string(test_redeemer) == @"5E181DB6BB8A42C28CCE87A97DCBB4E35A8C3320A13DDFCFB302F4F05D8E858B"
+test redeemer_string_raul() {
+  generate_redeemer_string(test_redeemer) == @"F321DACF3F1DA673C6E08385EC1750007D445E65EA5EFBFCE3F8D9076944589C"
 }
 
 test add_one_redeem() {
-  add_one(test_redeemer) == #"4035453138314442364242384134324332384343453837413937444342423445333541384333333230413133444446434642333032463446303544384538353842"
+  add_one(test_redeemer) == #"4038383438323732344433453142343239394430303532324441363233464343343044423145393143384435444433413731323532324241303135463546333044"
 }
 
 fn concat_array(list_array: List<ByteArray>) {
@@ -93,37 +96,47 @@ fn generate_message_hash(message: String) -> ByteArray {
   message_hash
 }
 
+const magicevm =
+  @"Ethereum Signed Message:\n"
+
+fn generate_message_hash_evm(message: String) -> ByteArray {
+  let bytes = string.to_bytearray(message)
+  let size = string.to_bytearray(to_string(length(bytes)))
+
+  let final_message = bytearray.concat(size, bytes)
+  let final_magic = bytearray.concat(#"19", bytearray.from_string(magicevm))
+
+  let finalized = bytearray.concat(final_magic, final_message)
+  trace cbor.diagnostic(finalized)
+  let message_hash = keccak_256(finalized)
+  message_hash
+}
+
 const signature =
-  #"632aacb01029a986a0f4b11c304daa3881a94ad027b3a357efd1ade3e1915412690d5a04d62cd65412e56d08a25aa73029b59023afd7ad8e4765d674550d330b"
+  #"d0c0720de80a3ae3b7a387f4e0bdec1ce0bc7cf7d6d8129edf5259fe34fb86e0578ca385ab111968880ac30d8c8770536fd1f61e804e88f7145618cee49d29ad"
 
 const pubkey =
-  #"028f5ced5649da371758f280635f94a558c68eee2ac4c7f07034425e97c60352bd"
+  #"035a99c71780945305f3a20356d55bcc7e8b681c3ef84c537cee5ee7e7da23163e"
 
-test signature_test() {
-  let messageHash =
-    generate_message_hash(
-      @"ABACADABA9F12A8B5382FC370E4E7E69421FB59831BB4ECCA3A11D9B",
-    )
+//a57805e57fccecb921cf9acac130b9ca8f76f73fc21ff5c7d04b76849424806e1ee52ad1ef3c5721a9e5ced31ef66afe7e586c8d76349558b20e01f913fb4a8e1c
+const signaturevm =
+  #"8c31abea17da50f76f11af8be147bff50efa3651d68a4c981f2d161ae0f78aab5656400a01bfb9f4ae75f2ed732371189d002df5ee9bf593970226bd6970117b"
+
+const pubkeyevm =
+  #"03d60f06fdfc20cde4cabf176237101424b141ba2fae5fb621717d4192f292c0a2"
+
+const messagevm = @"hello"
+
+test signature_evm() {
+  let messageHash = generate_message_hash_evm(messagevm)
   trace cbor.diagnostic(messageHash)
-  validate_signature_key(pubkey, messageHash, signature) == True
-}
-
-test signature_test_two() {
-  trace @"firma questo"
-  trace cbor.diagnostic(
-    sha2_256(
-      sha2_256(#"abacadaba9f12a8b5382fc370e4e7e69421fb59831bb4ecca3a11d9b"),
-    ),
-  )
-  let messageHash =
-    generate_message_hash(
-      @"ABACADABA9F12A8B5382FC370E4E7E69421FB59831BB4ECCA3A11D9B",
-    )
-  messageHash == #"71495e556b24afaa17d4318cef55b21a8ac341a12b1080f1ef602641708833cf"
-}
-
-test generate_array() {
-  generate_redeemer_array(test_redeemer) == #"6f69a8ed4e307bfb1d29e79f223c2bbf1debbb4c632bce72e2e3b8043a6852240000000000000000000000000000000000004c4b401c471b31ea0b04c652bd8f76b239aea5f57139bdc5a2b28ab1e69175fd3a6bfce30d7744ac55e9cf9146d8a2a04ec7fb2ce2ee6986260653"
+  trace @"needs to be"
+  trace #"50b2c43fd39106bafbba0da34fc430e1f91e3c96ea2acee2bc34119f92b37750"
+  validate_signature_key(
+    pubkeyevm,
+    #"50b2c43fd39106bafbba0da34fc430e1f91e3c96ea2acee2bc34119f92b37750",
+    signaturevm,
+  ) == True
 }
 
 fn validate_signature_key(publicKey: ByteArray, msg: ByteArray, sig: ByteArray) {

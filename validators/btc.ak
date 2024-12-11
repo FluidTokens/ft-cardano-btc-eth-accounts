@@ -58,6 +58,7 @@ validator btc(pubKey: ByteArray) {
         //TODO da checkare
         //verify I am sending the right amount to the right user from the data i have in the first output
         //verify the second output goes to the starting one - the amount it had - 1 ADA
+        //address validation receiver is missing
         let sending_value = from_asset(policy, assetname, amount)
 
         expect Some(contract_input) = find_input(self.inputs, own_ref)
@@ -124,7 +125,12 @@ validator btc(pubKey: ByteArray) {
     when certificate is {
       DelegateCredential(_, delegateCredential) -> {
         expect DelegateBlockProduction(poolId) = delegateCredential
-        let message_hash = get_hash_from_bytearray(poolId)
+        let message_array: List<ByteArray> =
+          list.push([], poolId)
+            |> list.push(bytearray.from_int_big_endian(deadline, 20))
+        let concat_message = concat_array(message_array)
+        let message_hash = get_hash_from_bytearray(concat_message)
+        //let message_hash = get_hash_from_bytearray(poolId)
         //TODO missing end in the hash
         trace cbor.diagnostic(message_hash)
         and {
