@@ -45,11 +45,36 @@ A Cardano wallet is able to allow the transaction using the signature of the bit
      - In exchange for submitting the transaction, the user is rewarded with a small fee in **ADA**.
 
 4. **Compatible wallets**
-   -XVerse
-   -Unisat
-   -Leather
-   -MagicEden
-   -OKX
+Here is a list of wallets compatible with our platform, including their website links and supported networks:
+
+1. XVerse  
+   - Website: https://xverse.app  
+   - Supported Networks: Bitcoin, Bitcoin Ordinals (Layer 2), Stacks  
+   - Details: XVerse is a multi-network wallet focused on Bitcoin and its ecosystem, offering support for both Bitcoin transactions and Layer 2 solutions like Ordinals.
+
+2. Unisat  
+   - Website: https://unisat.io  
+   - Supported Networks: Bitcoin, Bitcoin Ordinals  
+   - Details: Unisat is a web-based wallet tailored for Bitcoin and Ordinals, emphasizing simplicity and fast transactions on the Bitcoin network.
+
+3. Leather  
+   - Website: https://leather.io  
+   - Supported Networks: Bitcoin, Bitcoin Ordinals  
+   - Details: Leather is a Bitcoin-focused wallet offering secure storage and transaction capabilities, with added support for Ordinals.
+
+4. Magic Eden  
+   - Website: https://magiceden.io  
+   - Supported Networks: Bitcoin, Ethereum, Solana, Polygon  
+   - Details: Primarily known as a marketplace, Magic Eden also offers wallet services with multi-chain support, enabling transactions across various blockchains.
+
+5. OKX  
+   - Website: https://www.okx.com  
+   - Supported Networks: Bitcoin, Ethereum, Solana, Avalanche, and more  
+   - Details: OKX is a versatile platform offering wallet services along with trading and staking capabilities, supporting a wide range of networks.
+
+This list ensures users can select the most suitable wallet based on their network preferences and needs.
+
+
 
 <img width="265" alt="image" src="https://github.com/user-attachments/assets/02303f7d-d869-4bd3-9b34-d742b5bb84e4">
 
