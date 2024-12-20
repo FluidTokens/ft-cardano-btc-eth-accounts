@@ -17,6 +17,11 @@ pub type Redeemer {
   stakekey: ByteArray,
 }
 
+pub type RedeemerStake {
+  signature: ByteArray,
+  deadline: Int,
+}
+
 fn add_one(redeemer: Redeemer) -> ByteArray {
   let message_string_to_sign = generate_redeemer_string(redeemer)
   let size_message = #"40"
@@ -41,6 +46,18 @@ fn generate_redeemer_string(redeemer: Redeemer) -> String {
   bytearray.to_hex(sha2_256(sha2_256(concat_array(message_array))))
 }
 
+fn generate_redeemer_string_evm(
+  redeemer: RedeemerStake,
+  poolId: ByteArray,
+) -> String {
+  let message_array: List<ByteArray> =
+    list.push([], poolId)
+      |> list.push(bytearray.from_int_big_endian(redeemer.deadline, 20))
+
+  trace cbor.diagnostic(sha2_256(sha2_256(concat_array(message_array))))
+  bytearray.to_hex(sha2_256(sha2_256(concat_array(message_array))))
+}
+
 fn generate_redeemer_array(redeemer: Redeemer) -> ByteArray {
   let message_array: List<ByteArray> =
     list.push([], redeemer.stakekey)
@@ -57,18 +74,18 @@ const test_redeemer =
   Redeemer(
     #"ab",
     OutputReference(
-      #"f5050ca4ce13f459efbd199fec2d62605eca9165fbec9201df8fbda7142a0dc7",
+      #"cb93c9822314f4447028851689b1ea23a18393189577c59d27642e32654e0253",
       0,
     ),
-    #"",
-    #"",
-    5000000,
+    #"0b77d150c275bd0a600633e4be7d09f83c4b9f00981e22ac9c9d3f62",
+    #"0014df1074464c4454",
+    1000000,
     #"1c471b31ea0b04c652bd8f76b239aea5f57139bdc5a2b28ab1e69175",
     #"fd3a6bfce30d7744ac55e9cf9146d8a2a04ec7fb2ce2ee6986260653",
   )
 
 test redeemer_string_raul() {
-  generate_redeemer_string(test_redeemer) == @"F321DACF3F1DA673C6E08385EC1750007D445E65EA5EFBFCE3F8D9076944589C"
+  generate_redeemer_string(test_redeemer) == @"QUALCOSA"
 }
 
 test add_one_redeem() {
@@ -120,25 +137,40 @@ const pubkey =
 
 //a57805e57fccecb921cf9acac130b9ca8f76f73fc21ff5c7d04b76849424806e1ee52ad1ef3c5721a9e5ced31ef66afe7e586c8d76349558b20e01f913fb4a8e1c
 const signaturevm =
-  #"8c31abea17da50f76f11af8be147bff50efa3651d68a4c981f2d161ae0f78aab5656400a01bfb9f4ae75f2ed732371189d002df5ee9bf593970226bd6970117b"
+  #"d8db455cab38de6160a738e9b2d72b0814dfd4ec27899025821b82881fc936a7777fae2e11f689a8133968e29f04a2931e3e230fc53afce691141fed5768eefe"
 
 const pubkeyevm =
-  #"03d60f06fdfc20cde4cabf176237101424b141ba2fae5fb621717d4192f292c0a2"
+  #"02598c31a47c10851b9a16c7214dcefebac1959c4b10e5d65f12faef6de11b236c"
 
-const messagevm = @"hello"
+const messagevm =
+  @"17A587B802ED0368609D20D1CBB4DC32B18982DF6FB27711D3201ED4BEFA32D6"
+
+const messagebtc =
+  @"B822E10A74A37ADCD2877C33A1DA4C2B770388EE4F74CD0B49A5304431D0CDE2"
+
+test signature_btc() {
+  let messageHash = generate_message_hash(messagebtc)
+  validate_signature_key(pubkey, messageHash, signature) == True
+}
 
 test signature_evm() {
   let messageHash = generate_message_hash_evm(messagevm)
-  trace cbor.diagnostic(messageHash)
-  trace @"needs to be"
-  trace #"50b2c43fd39106bafbba0da34fc430e1f91e3c96ea2acee2bc34119f92b37750"
-  validate_signature_key(
-    pubkeyevm,
-    #"50b2c43fd39106bafbba0da34fc430e1f91e3c96ea2acee2bc34119f92b37750",
-    signaturevm,
-  ) == True
+  validate_signature_key(pubkeyevm, messageHash, signaturevm) == True
 }
 
 fn validate_signature_key(publicKey: ByteArray, msg: ByteArray, sig: ByteArray) {
   builtin.verify_ecdsa_secp256k1_signature(publicKey, msg, sig)
+}
+
+const test_redeemer_publish =
+  RedeemerStake(
+    #"d8db455cab38de6160a738e9b2d72b0814dfd4ec27899025821b82881fc936a7777fae2e11f689a8133968e29f04a2931e3e230fc53afce691141fed5768eefe",
+    1734696439051,
+  )
+
+test redeemer_string_evm() {
+  generate_redeemer_string_evm(
+    test_redeemer_publish,
+    #"06a9d41c3d9bba41740986a59f484a23967329f1513bc982974aa8bf",
+  ) == @"17A587B802ED0368609D20D1CBB4DC32B18982DF6FB27711D3201ED4BEFA32D6"
 }
