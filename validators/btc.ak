@@ -6,24 +6,34 @@ use aiken/crypto.{sha2_256}
 use aiken/interval.{Finite}
 use aiken/primitive/bytearray.{length}
 use aiken/primitive/string
-use cardano/address.{Credential, Script}
-use cardano/assets.{
-  from_asset, from_lovelace, lovelace_of, merge, negate, quantity_of,
+use cardano/address.{
+  Address, Credential, Script, from_script, from_verification_key,
+  with_delegation_key, with_delegation_script,
 }
+use cardano/assets.{from_asset, from_lovelace, merge, negate, quantity_of, zero}
 use cardano/certificate.{
   Certificate, DelegateBlockProduction, DelegateCredential,
 }
-use cardano/transaction.{OutputReference, Transaction, find_input}
+use cardano/transaction.{
+  Datum, InlineDatum, Input, NoDatum, Output, OutputReference, Transaction,
+  find_input,
+}
 
 pub type Redeemer {
   Send {
     signature: ByteArray,
-    utxo: OutputReference,
+    utxos: List<OutputReference>,
     policy: ByteArray,
     assetname: ByteArray,
     amount: Int,
+    spendingscriptflag: Int,
     pubkey: ByteArray,
+    stakingscriptflag: Int,
     stakekey: ByteArray,
+    datumflag: Int,
+    datum: Data,
+    payment_index: Int,
+    fee: Int,
   }
   Merge
   Stake { signature: ByteArray, deadline: Int }
@@ -42,17 +52,48 @@ validator btc(pubKey: ByteArray) {
     //we'll build the message like this,txid+index+unit+amount+pubkey+stakekeys
 
     when redeemer is {
-      Send(signature, utxo, policy, assetname, amount, pubkey, stakekey) -> {
+      Send(
+        signature,
+        utxos,
+        policy,
+        assetname,
+        amount,
+        spendingscriptflag,
+        pubkey,
+        stakingscriptflag,
+        stakekey,
+        datumflag,
+        datum,
+        payment_index,
+        fee,
+      ) -> {
+        let list_utxos =
+          list.foldr(
+            utxos,
+            [],
+            fn(utxo, xs) {
+              [
+                utxo.transaction_id,
+                bytearray.from_int_big_endian(utxo.output_index, 1),
+                ..xs
+              ]
+            },
+          )
+        expect datum_converted: ByteArray = datum
         let message_array: List<ByteArray> =
-          list.push([], stakekey)
+          list.push([], bytearray.from_int_big_endian(fee, 20))
+            |> list.push(bytearray.from_int_big_endian(payment_index, 1))
+            |> list.push(datum_converted)
+            |> list.push(bytearray.from_int_big_endian(datumflag, 1))
+            |> list.push(stakekey)
+            |> list.push(bytearray.from_int_big_endian(stakingscriptflag, 1))
             |> list.push(pubkey)
+            |> list.push(bytearray.from_int_big_endian(spendingscriptflag, 1))
             |> list.push(bytearray.from_int_big_endian(amount, 20))
             |> list.push(assetname)
             |> list.push(policy)
-            |> list.push(bytearray.from_int_big_endian(utxo.output_index, 1))
-            |> list.push(utxo.transaction_id)
 
-        let concat_array = concat_array(message_array)
+        let concat_array = concat_array(list.concat(list_utxos, message_array))
         let message_hash = get_hash_from_bytearray(concat_array)
 
         //TODO da checkare
@@ -62,39 +103,44 @@ validator btc(pubKey: ByteArray) {
         let sending_value = from_asset(policy, assetname, amount)
 
         expect Some(contract_input) = find_input(self.inputs, own_ref)
-        expect Some(payment_output) = list.at(self.outputs, 0)
-        expect Some(returning_output) = list.at(self.outputs, 1)
+        expect Some(payment_output) = list.at(self.outputs, payment_index)
 
-        let starting_ada = lovelace_of(contract_input.output.value)
+        let starting_value =
+          find_inputs_value(self.inputs, contract_input.output.address)
+        let final_value =
+          find_outputs_value(self.outputs, contract_input.output.address)
+
+        let flag_utxo_present = list.has(utxos, own_ref)
 
         let basic_validation = and {
-            own_ref == utxo,
+            flag_utxo_present,
             validate_signature_key(pubKey, message_hash, signature),
           }
-
-        if starting_ada > 4000000 {
-          and {
-            quantity_of(payment_output.value, policy, assetname) == quantity_of(
-              sending_value,
-              policy,
-              assetname,
-            ),
-            merge(
-              merge(contract_input.output.value, negate(sending_value)),
-              negate(from_lovelace(1000000)),
-            ) == returning_output.value,
-            basic_validation,
-          }
-        } else {
-          and {
-            quantity_of(payment_output.value, policy, assetname) == quantity_of(
-              sending_value,
-              policy,
-              assetname,
-            ),
-            merge(contract_input.output.value, negate(sending_value)) == returning_output.value,
-            basic_validation,
-          }
+        //Check 1) The output is sending the right amount
+        //Check 2) It is returning the right amount
+        //Check 3) Is the right receiver
+        //Check 4) Has the datum?
+        let expected_datum = calculate_datum(datumflag, datum)
+        let expected_address =
+          calculate_address(
+            spendingscriptflag,
+            stakingscriptflag,
+            pubkey,
+            stakekey,
+          )
+        and {
+          quantity_of(payment_output.value, policy, assetname) == quantity_of(
+            sending_value,
+            policy,
+            assetname,
+          ),
+          merge(
+            merge(starting_value, negate(sending_value)),
+            negate(from_lovelace(fee)),
+          ) == final_value,
+          basic_validation,
+          payment_output.address == expected_address,
+          payment_output.datum == expected_datum,
         }
       }
       //idealmente qua calcolo il valore totale in input e mi assicuro al contratto vada esattamente quell'ammontare - 2 ADA
@@ -111,7 +157,9 @@ validator btc(pubKey: ByteArray) {
         expect Some(first_output) = list.at(self.outputs, 0)
         and {
           first_output.value == from_lovelace(withdrawAmount - 1000000),
-          first_output.address.payment_credential == Script(hash),
+          first_output.address == (
+            from_script(hash) |> with_delegation_script(hash)
+          ),
           withdrawAmount > 10000000,
         }
       }
@@ -184,5 +232,66 @@ fn validate_tx_end(tx: Transaction, deadline: Int) {
   when tx.validity_range.upper_bound.bound_type is {
     Finite(end) -> end < deadline
     _ -> False
+  }
+}
+
+fn find_inputs_value(inputs: List<Input>, sc_address: Address) {
+  list.foldl(
+    inputs,
+    zero,
+    fn(input, total) {
+      if input.output.address == sc_address {
+        merge(input.output.value, total)
+      } else {
+        total
+      }
+    },
+  )
+}
+
+fn find_outputs_value(outputs: List<Output>, sc_address: Address) {
+  list.foldl(
+    outputs,
+    zero,
+    fn(output, total) {
+      if output.address == sc_address {
+        merge(output.value, total)
+      } else {
+        total
+      }
+    },
+  )
+}
+
+pub fn calculate_address(
+  flag_spending_script: Int,
+  flag_staking_script: Int,
+  pubkey: ByteArray,
+  stakekey: ByteArray,
+) -> Address {
+  if flag_spending_script == 0 && flag_staking_script == 0 {
+    from_verification_key(pubkey) |> with_delegation_key(stakekey)
+  } else {
+    if flag_spending_script == 0 && flag_staking_script == 1 {
+      from_verification_key(pubkey) |> with_delegation_script(stakekey)
+    } else {
+      if flag_spending_script == 1 && flag_staking_script == 0 {
+        from_script(pubkey) |> with_delegation_key(stakekey)
+      } else {
+        if flag_spending_script == 1 && flag_staking_script == 1 {
+          from_script(pubkey) |> with_delegation_script(stakekey)
+        } else {
+          from_verification_key(pubkey) |> with_delegation_key(stakekey)
+        }
+      }
+    }
+  }
+}
+
+pub fn calculate_datum(flag_datum: Int, datum: Data) -> Datum {
+  if flag_datum == 0 {
+    NoDatum
+  } else {
+    InlineDatum(datum)
   }
 }
