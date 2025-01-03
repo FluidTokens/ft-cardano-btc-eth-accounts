@@ -4,6 +4,7 @@ use aiken/collection/list
 use aiken/collection/pairs
 use aiken/crypto.{sha2_256}
 use aiken/interval.{Finite}
+use aiken/option.{is_some}
 use aiken/primitive/bytearray.{length}
 use aiken/primitive/string
 use cardano/address.{
@@ -34,6 +35,7 @@ pub type Redeemer {
     datum: Data,
     payment_index: Int,
     fee: Int,
+    signer: Address,
   }
   Merge
   Stake { signature: ByteArray, deadline: Int }
@@ -66,6 +68,7 @@ validator btc(pubKey: ByteArray) {
         datum,
         payment_index,
         fee,
+        signer,
       ) -> {
         let list_utxos =
           list.foldr(
@@ -120,6 +123,8 @@ validator btc(pubKey: ByteArray) {
         //Check 2) It is returning the right amount
         //Check 3) Is the right receiver
         //Check 4) Has the datum?
+        //Check 5) Are all inputs in utxos present? This is important otherwise I could cancel something random
+        //Check 6) Inputs that were not willing to be inside are from the same address and is a user
         let expected_datum = calculate_datum(datumflag, datum)
         let expected_address =
           calculate_address(
@@ -141,6 +146,8 @@ validator btc(pubKey: ByteArray) {
           basic_validation,
           payment_output.address == expected_address,
           payment_output.datum == expected_datum,
+          all_inputs_present(utxos, self.inputs),
+          only_external_signer_inputs_extra(utxos, self.inputs, signer),
         }
       }
       //idealmente qua calcolo il valore totale in input e mi assicuro al contratto vada esattamente quell'ammontare - 2 ADA
@@ -294,4 +301,24 @@ pub fn calculate_datum(flag_datum: Int, datum: Data) -> Datum {
   } else {
     InlineDatum(datum)
   }
+}
+
+pub fn all_inputs_present(
+  utxos_chosen: List<OutputReference>,
+  real_utxos: List<Input>,
+) {
+  list.all(utxos_chosen, fn(input) { is_some(find_input(real_utxos, input)) })
+}
+
+pub fn only_external_signer_inputs_extra(
+  utxos_chosen: List<OutputReference>,
+  real_utxos: List<Input>,
+  address_signer: Address,
+) {
+  let list_external =
+    list.filter(
+      real_utxos,
+      fn(input) { !list.has(utxos_chosen, input.output_reference) },
+    )
+  list.all(list_external, fn(input) { input.output.address == address_signer })
 }
