@@ -5,6 +5,7 @@ use aiken/crypto.{keccak_256, sha2_256}
 use aiken/primitive/bytearray.{length}
 use aiken/primitive/int.{to_string}
 use aiken/primitive/string
+use cardano/assets.{Value}
 use cardano/transaction.{OutputReference}
 
 pub type Redeemer {
@@ -321,4 +322,18 @@ test final_test() {
 
 test final_array() {
   generate_redeemer_array_real(test_redeemer_real) == #""
+}
+
+const value: Value =
+  assets.from_lovelace(30)
+    |> assets.add("foo", "bar", 10)
+    |> assets.add("foo", "baz", 42)
+
+const datum: Data =
+  assets.from_lovelace(20)
+    |> assets.add("foo", "bar", 10)
+    |> assets.add("foo", "baz", 42)
+
+test compare() {
+  assets.match(value, datum, >=)
 }

@@ -27,6 +27,9 @@ pub type Redeemer {
     policy: ByteArray,
     assetname: ByteArray,
     amount: Int,
+    policyInput: ByteArray,
+    assetnameInput: ByteArray,
+    amountInput: Int,
     spendingscriptflag: Int,
     pubkey: ByteArray,
     stakingscriptflag: Int,
@@ -60,6 +63,9 @@ validator btc(pubKey: ByteArray) {
         policy,
         assetname,
         amount,
+        policyInput,
+        assetnameInput,
+        amountInput,
         spendingscriptflag,
         pubkey,
         stakingscriptflag,
@@ -92,6 +98,9 @@ validator btc(pubKey: ByteArray) {
             |> list.push(bytearray.from_int_big_endian(stakingscriptflag, 1))
             |> list.push(pubkey)
             |> list.push(bytearray.from_int_big_endian(spendingscriptflag, 1))
+            |> list.push(bytearray.from_int_big_endian(amountInput, 20))
+            |> list.push(assetnameInput)
+            |> list.push(policyInput)
             |> list.push(bytearray.from_int_big_endian(amount, 20))
             |> list.push(assetname)
             |> list.push(policy)
@@ -104,6 +113,12 @@ validator btc(pubKey: ByteArray) {
         //verify the second output goes to the starting one - the amount it had - 1 ADA
         //address validation receiver is missing
         let sending_value = from_asset(policy, assetname, amount)
+        let incoming_value =
+          if amountInput > 0 {
+            from_asset(policy, assetname, amount)
+          } else {
+            zero
+          }
 
         expect Some(contract_input) = find_input(self.inputs, own_ref)
         expect Some(payment_output) = list.at(self.outputs, payment_index)
@@ -125,6 +140,8 @@ validator btc(pubKey: ByteArray) {
         //Check 4) Has the datum?
         //Check 5) Are all inputs in utxos present? This is important otherwise I could cancel something random
         //Check 6) Inputs that were not willing to be inside are from the same address and is a user
+        //7)Issue now is the expected value coming, this is something we want to sign also? Add input value signed and we are done
+        //Let's limit the max amount of outputs to the same wallet, otherwise someone could split all my ada in so many utxos making hard to spend them
         let expected_datum = calculate_datum(datumflag, datum)
         let expected_address =
           calculate_address(
@@ -139,10 +156,17 @@ validator btc(pubKey: ByteArray) {
             policy,
             assetname,
           ),
-          merge(
-            merge(starting_value, negate(sending_value)),
-            negate(from_lovelace(fee)),
-          ) == final_value,
+          assets.match(
+            final_value,
+            merge(
+              merge(
+                merge(starting_value, negate(sending_value)),
+                incoming_value,
+              ),
+              negate(from_lovelace(fee)),
+            ),
+            >=,
+          ),
           basic_validation,
           payment_output.address == expected_address,
           payment_output.datum == expected_datum,
