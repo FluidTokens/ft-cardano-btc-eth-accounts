@@ -74,9 +74,22 @@ OKX
 
 This list ensures users can select the most suitable wallet based on their network preferences and needs.
 
-
-
 <img width="265" alt="image" src="https://github.com/user-attachments/assets/02303f7d-d869-4bd3-9b34-d742b5bb84e4">
+
+## Ethereum-Compatible Wallets:
+MetaMask
+
+  - Website: metamask.io
+  - Supported Networks: Ethereum, Ethereum Layer 2 (Optimism, Arbitrum), Polygon, and more.
+  - Details: MetaMask is one of the most popular Ethereum wallets, allowing users to interact with Ethereum and other blockchain-based applications, including DeFi and NFTs.
+
+Magic Eden (Ethereum)
+
+  - Website: magiceden.io
+  - Supported Networks: Ethereum, Polygon
+  - Details: In addition to its marketplace and multi-chain wallet services for Bitcoin and Solana, Magic Eden also supports Ethereum transactions.
+
+
 
 ## Step by step guide
 - Clone the repository
