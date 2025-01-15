@@ -218,6 +218,9 @@ pub type RedeemerReal {
   policy: ByteArray,
   assetname: ByteArray,
   amount: Int,
+  policyInput: ByteArray,
+  assetnameInput: ByteArray,
+  amountInput: Int,
   spendingscriptflag: Int,
   pubkey: ByteArray,
   stakingscriptflag: Int,
@@ -230,24 +233,27 @@ pub type RedeemerReal {
 
 const test_redeemer_real =
   RedeemerReal(
-    #"ab",
+    #"a251899902749ac4919a1ebb6f093872f7bd902ffec4a1efe622061b1deb7ab67d4dc017e3fcbfe2bfda5104730130c88ca240f57ca42552ccd893bf1226b662",
     [
       OutputReference(
-        #"cb93c9822314f4447028851689b1ea23a18393189577c59d27642e32654e0253",
+        #"39ac37115ea67f43a80ec39780157b5df6ceacd69aa2ac81846a2f124a7665db",
         0,
       ),
       OutputReference(
-        #"cb93c9822314f4447028851689b1ea23a18393189577c59d27642e32654e0253",
-        1,
+        #"63b44cc17276a9e9fe22ef8b36a4b79fa668d4b4214d501fa01c442e47cc1df7",
+        0,
       ),
     ],
-    #"0b77d150c275bd0a600633e4be7d09f83c4b9f00981e22ac9c9d3f62",
-    #"0014df1074464c4454",
-    1000000,
+    #"",
+    #"",
+    12000000,
+    #"",
+    #"",
     0,
-    #"1c471b31ea0b04c652bd8f76b239aea5f57139bdc5a2b28ab1e69175",
     0,
-    #"fd3a6bfce30d7744ac55e9cf9146d8a2a04ec7fb2ce2ee6986260653",
+    #"e597eee23b8d269e4df5f7eab90dec9924bc4b813814ca17270bc57b",
+    0,
+    #"91da02fd4bf9e6ccbbc621b204de5d1bcaa40d399f9ec3fe4790cb45",
     0,
     "",
     0,
@@ -278,10 +284,12 @@ fn generate_redeemer_array_real(redeemer: RedeemerReal) -> ByteArray {
       |> list.push(bytearray.from_int_big_endian(redeemer.stakingscriptflag, 1))
       |> list.push(redeemer.pubkey)
       |> list.push(bytearray.from_int_big_endian(redeemer.spendingscriptflag, 1))
+      |> list.push(bytearray.from_int_big_endian(redeemer.amountInput, 20))
+      |> list.push(redeemer.assetnameInput)
+      |> list.push(redeemer.policyInput)
       |> list.push(bytearray.from_int_big_endian(redeemer.amount, 20))
       |> list.push(redeemer.assetname)
       |> list.push(redeemer.policy)
-
   concat_array(list.concat(list_utxos, message_array))
 }
 
@@ -308,32 +316,24 @@ fn generate_redeemer_string_real(redeemer: RedeemerReal) -> String {
       |> list.push(bytearray.from_int_big_endian(redeemer.stakingscriptflag, 1))
       |> list.push(redeemer.pubkey)
       |> list.push(bytearray.from_int_big_endian(redeemer.spendingscriptflag, 1))
+      |> list.push(bytearray.from_int_big_endian(redeemer.amountInput, 20))
+      |> list.push(redeemer.assetnameInput)
+      |> list.push(redeemer.policyInput)
       |> list.push(bytearray.from_int_big_endian(redeemer.amount, 20))
       |> list.push(redeemer.assetname)
       |> list.push(redeemer.policy)
-      |> list.concat(list_utxos)
 
-  bytearray.to_hex(sha2_256(sha2_256(concat_array(message_array))))
+  trace cbor.diagnostic(concat_array(list.concat(list_utxos, message_array)))
+
+  bytearray.to_hex(
+    sha2_256(sha2_256(concat_array(list.concat(list_utxos, message_array)))),
+  )
 }
 
 test final_test() {
-  generate_redeemer_string_real(test_redeemer_real) == @"hello"
+  generate_redeemer_string_real(test_redeemer_real) == @"F10D57058072065AB13AF839A31E97C18EC7094C5A5E33E9A99110FB1AE92B54"
 }
 
 test final_array() {
   generate_redeemer_array_real(test_redeemer_real) == #""
-}
-
-const value: Value =
-  assets.from_lovelace(30)
-    |> assets.add("foo", "bar", 10)
-    |> assets.add("foo", "baz", 42)
-
-const datum: Data =
-  assets.from_lovelace(20)
-    |> assets.add("foo", "bar", 10)
-    |> assets.add("foo", "baz", 42)
-
-test compare() {
-  assets.match(value, datum, >=)
 }
