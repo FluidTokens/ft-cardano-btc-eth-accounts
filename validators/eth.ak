@@ -98,7 +98,7 @@ validator btc(pubKey: ByteArray) {
           }
         }
       }
-      //idealmente qua calcolo il valore totale in input e mi assicuro al contratto vada esattamente quell'ammontare - 2 ADA
+      //We need to give back some ADA to the ones able to merge the utxos of the smart accounts, 2 ADA ideally
       Merge -> False
       _ -> False
     }
