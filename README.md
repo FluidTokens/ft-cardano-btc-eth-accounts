@@ -77,6 +77,11 @@ This list ensures users can select the most suitable wallet based on their netwo
 <img width="265" alt="image" src="https://github.com/user-attachments/assets/02303f7d-d869-4bd3-9b34-d742b5bb84e4">
 
 ## Ethereum-Compatible Wallets:
+
+[The contract eth.ak](https://github.com/FluidTokens/ft-cardano-btc-eth-accounts/blob/main/validators/eth.ak) is compatible with ethereum wallets signatures, allowing users to interact with Cardano using Ethereum wallets
+
+Frontend allows to connect but is not yet fully working since it's the scope of next catalyst milestone.
+
 MetaMask
 
   - Website: metamask.io
