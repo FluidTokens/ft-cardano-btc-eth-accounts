@@ -10,6 +10,9 @@ This repository contains smart contracts written in **Aiken** designed to integr
 ## Validators Folder
 
 - The `validators` folder contains the **Aiken** smart contracts responsible for signature validation. These contracts allow compatibility with **Bitcoin wallets** and **EVM wallets**, leveraging their public key infrastructure for secure interaction within the Cardano blockchain.
+
+- btc.ak is the contract to interact using bitcoin wallets, frontend is ready
+- eth.ak is the contract to interact using evm wallets, frontend in progress
   
 ## Project Flow
 
