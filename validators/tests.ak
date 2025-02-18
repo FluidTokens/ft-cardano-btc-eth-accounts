@@ -261,6 +261,7 @@ const test_redeemer_real =
   )
 
 fn generate_redeemer_array_real(redeemer: RedeemerReal) -> ByteArray {
+  trace cbor.serialise(redeemer)
   let list_utxos =
     list.foldr(
       redeemer.utxos,
