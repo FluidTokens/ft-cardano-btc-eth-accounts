@@ -5,7 +5,6 @@ use aiken/crypto.{keccak_256, sha2_256}
 use aiken/primitive/bytearray.{length}
 use aiken/primitive/int.{to_string}
 use aiken/primitive/string
-use cardano/assets.{Value}
 use cardano/transaction.{OutputReference}
 
 pub type Redeemer {
@@ -59,17 +58,17 @@ fn generate_redeemer_string_evm(
   bytearray.to_hex(sha2_256(sha2_256(concat_array(message_array))))
 }
 
-fn generate_redeemer_array(redeemer: Redeemer) -> ByteArray {
-  let message_array: List<ByteArray> =
-    list.push([], redeemer.stakekey)
-      |> list.push(redeemer.pubkey)
-      |> list.push(bytearray.from_int_big_endian(redeemer.amount, 20))
-      |> list.push(redeemer.assetname)
-      |> list.push(redeemer.policy)
-      |> list.push(bytearray.from_int_big_endian(redeemer.utxo.output_index, 1))
-      |> list.push(redeemer.utxo.transaction_id)
-  concat_array(message_array)
-}
+// fn generate_redeemer_array(redeemer: Redeemer) -> ByteArray {
+//   let message_array: List<ByteArray> =
+//     list.push([], redeemer.stakekey)
+//       |> list.push(redeemer.pubkey)
+//       |> list.push(bytearray.from_int_big_endian(redeemer.amount, 20))
+//       |> list.push(redeemer.assetname)
+//       |> list.push(redeemer.policy)
+//       |> list.push(bytearray.from_int_big_endian(redeemer.utxo.output_index, 1))
+//       |> list.push(redeemer.utxo.transaction_id)
+//   concat_array(message_array)
+// }
 
 const test_redeemer =
   Redeemer(
@@ -114,22 +113,22 @@ fn generate_message_hash(message: String) -> ByteArray {
   message_hash
 }
 
-const magic_doge =
-  @"Dogecoin Signed Message:\n"
+// const magic_doge =
+//   @"Dogecoin Signed Message:\n"
 
-fn generate_message_hash_doge(message: String) -> ByteArray {
-  let bytes = string.to_bytearray(message)
-  let size = length(bytes)
+// fn generate_message_hash_doge(message: String) -> ByteArray {
+//   let bytes = string.to_bytearray(message)
+//   let size = length(bytes)
 
-  let final_message =
-    bytearray.concat(bytearray.from_int_big_endian(size, 1), bytes)
-  let final_magic = bytearray.concat(#"19", bytearray.from_string(magic_doge))
+//   let final_message =
+//     bytearray.concat(bytearray.from_int_big_endian(size, 1), bytes)
+//   let final_magic = bytearray.concat(#"19", bytearray.from_string(magic_doge))
 
-  let finalized = bytearray.concat(final_magic, final_message)
+//   let finalized = bytearray.concat(final_magic, final_message)
 
-  let message_hash = sha2_256(sha2_256(finalized))
-  message_hash
-}
+//   let message_hash = sha2_256(sha2_256(finalized))
+//   message_hash
+// }
 
 const magicevm =
   @"Ethereum Signed Message:\n"
@@ -337,4 +336,12 @@ test final_test() {
 
 test final_array() {
   generate_redeemer_array_real(test_redeemer_real) == #""
+}
+
+test test_oracle() {
+  builtin.verify_ed25519_signature(
+    #"e0d6c8203dfa8dddf03c8c7960a10fb36bc0772866b9894f9671a2de2c936855",
+    #"d8799fd8799f1b00000195283250c81b00000195283b7888d8799f480014df10464c4454581c577f0b1342f8f8f4aed3388b80a8535812950c7a892495c0ecdf0f1effff1b000d5e30a7348afe1b00000002540be400ff",
+    #"675ed63c239045fdbe65349c4b177e30273f00884e6d676673fb236df2f15509992f331f3e65cddcb8a1c41ae911a47bb899b2de507b03a87a02ec516059b800",
+  )
 }

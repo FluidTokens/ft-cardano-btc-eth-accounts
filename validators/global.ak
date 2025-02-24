@@ -2,10 +2,11 @@ use aiken/builtin
 use aiken/cbor
 use aiken/collection/list
 use aiken/collection/pairs
-use aiken/crypto.{sha2_256}
+use aiken/crypto.{keccak_256, sha2_256}
 use aiken/interval.{Finite}
 use aiken/option.{is_some}
 use aiken/primitive/bytearray.{length}
+use aiken/primitive/int.{to_string}
 use aiken/primitive/string
 use cardano/address.{
   Address, Credential, Script, from_script, from_verification_key,
@@ -19,35 +20,10 @@ use cardano/transaction.{
   Datum, InlineDatum, Input, NoDatum, Output, OutputReference, Transaction,
   find_input,
 }
+use constants
+use redeemer.{Merge, Redeemer, Send, Stake}
 
-pub type Redeemer {
-  Send {
-    signature: ByteArray,
-    utxos: List<OutputReference>,
-    policy: ByteArray,
-    assetname: ByteArray,
-    amount: Int,
-    policyInput: ByteArray,
-    assetnameInput: ByteArray,
-    amountInput: Int,
-    spendingscriptflag: Int,
-    pubkey: ByteArray,
-    stakingscriptflag: Int,
-    stakekey: ByteArray,
-    datumflag: Int,
-    datum: Data,
-    payment_index: Int,
-    fee: Int,
-    signer: Address,
-  }
-  Merge
-  Stake { signature: ByteArray, deadline: Int }
-}
-
-const magic =
-  @"Bitcoin Signed Message:\n"
-
-validator btc(pubKey: ByteArray) {
+validator global(pubKey: ByteArray) {
   spend(
     _datum: Option<Data>,
     redeemer: Redeemer,
@@ -106,8 +82,8 @@ validator btc(pubKey: ByteArray) {
             |> list.push(policy)
 
         let concat_array = concat_array(list.concat(list_utxos, message_array))
-        let message_hash = get_hash_from_bytearray(concat_array)
-
+        let message_hash_btc = get_hash_from_bytearray_btc(concat_array)
+        let message_hash_eth = get_hash_from_bytearray_eth(concat_array)
         //TODO da checkare
         //verify I am sending the right amount to the right user from the data i have in the first output
         //verify the second output goes to the starting one - the amount it had - 1 ADA
@@ -132,7 +108,10 @@ validator btc(pubKey: ByteArray) {
 
         let basic_validation = and {
             flag_utxo_present,
-            validate_signature_key(pubKey, message_hash, signature),
+            or {
+              validate_signature_key(pubKey, message_hash_btc, signature),
+              validate_signature_key(pubKey, message_hash_eth, signature),
+            },
           }
         //Check 1) The output is sending the right amount
         //Check 2) It is returning the right amount
@@ -208,12 +187,15 @@ validator btc(pubKey: ByteArray) {
           list.push([], poolId)
             |> list.push(bytearray.from_int_big_endian(deadline, 20))
         let concat_message = concat_array(message_array)
-        let message_hash = get_hash_from_bytearray(concat_message)
+        let message_hash_btc = get_hash_from_bytearray_btc(concat_message)
+        let message_hash_eth = get_hash_from_bytearray_eth(concat_message)
         //let message_hash = get_hash_from_bytearray(poolId)
         //TODO missing end in the hash
-        trace cbor.diagnostic(message_hash)
         and {
-          validate_signature_key(pubKey, message_hash, signature),
+          or {
+            validate_signature_key(pubKey, message_hash_btc, signature),
+            validate_signature_key(pubKey, message_hash_eth, signature),
+          },
           validate_tx_end(self, deadline),
         }
       }
@@ -229,7 +211,7 @@ validator btc(pubKey: ByteArray) {
   }
 }
 
-fn get_hash_from_bytearray(byte: ByteArray) {
+fn get_hash_from_bytearray_btc(byte: ByteArray) {
   //this is what I sign
   let concat_message =
     string.to_bytearray(bytearray.to_hex(sha2_256(sha2_256(byte))))
@@ -239,12 +221,29 @@ fn get_hash_from_bytearray(byte: ByteArray) {
   let final_message =
     bytearray.concat(bytearray.from_int_big_endian(size, 1), concat_message)
 
-  let magic_array = bytearray.from_string(magic)
+  let magic_array = bytearray.from_string(constants.magic_btc)
   let final_magic = bytearray.concat(#"18", magic_array)
 
   let finalized = bytearray.concat(final_magic, final_message)
 
   sha2_256(sha2_256(finalized))
+}
+
+fn get_hash_from_bytearray_eth(byte: ByteArray) {
+  //this is what I sign
+  let concat_message =
+    string.to_bytearray(bytearray.to_hex(sha2_256(sha2_256(byte))))
+  let size = string.to_bytearray(to_string(length(concat_message)))
+
+  //il doppio sha poi lo rendo stringa e maiuscolo, è quello che firmo
+  let final_message = bytearray.concat(size, concat_message)
+
+  let magic_array = bytearray.from_string(constants.magic_eth)
+  let final_magic = bytearray.concat(#"19", magic_array)
+
+  let finalized = bytearray.concat(final_magic, final_message)
+
+  keccak_256(finalized)
 }
 
 fn validate_signature_key(publicKey: ByteArray, msg: ByteArray, sig: ByteArray) {
