@@ -1,5 +1,5 @@
 
-# Aiken Smart Contracts for Bitcoin Wallet Integration
+# Aiken Smart Contracts for Bitcoin and Ethereum Wallet Integration
 
 This repository contains smart contracts written in **Aiken** designed to integrate Bitcoin and EVM wallet signatures into the **Cardano** blockchain ecosystem.
 
