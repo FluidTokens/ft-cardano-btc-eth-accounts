@@ -69,7 +69,11 @@ pub fn token_with_credentials_in_contract(
       fn(input) {
         expect Some(stake_cred) = input.output.address.stake_credential
         expect Inline(a) = stake_cred
-        expect VerificationKey(hash) = a
+        let hash =
+          when a is {
+            VerificationKey(h) -> h
+            Script(h) -> h
+          }
         is_owner_signing(hash, self)
       },
     ),
